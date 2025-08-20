@@ -1,0 +1,290 @@
+{% extends "base.html" %}
+
+{% block title %}Devices - Wialon Webhook Receiver{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3">
+            <i data-feather="smartphone" class="me-2"></i>
+            Devices
+        </h1>
+        <div class="text-muted">
+            Xirgo/Sensata XG3780 tracking devices
+        </div>
+    </div>
+
+    {% if devices.items %}
+        <div class="card">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Unit ID</th>
+                                <th>Device Name</th>
+                                <th>Type</th>
+                                <th>Status</th>
+                                <th>Last Seen</th>
+                                <th>Created</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for device in devices.items %}
+                            <tr>
+                                <td>
+                                    <code>{{ device.unit_id }}</code>
+                                </td>
+                                <td>
+                                    <strong>{{ device.name or 'Unnamed Device' }}</strong>
+                                </td>
+                                <td>
+                                    <span class="badge bg-secondary">{{ device.device_type }}</span>
+                                </td>
+                                <td>
+                                    {% if device.is_active %}
+                                        {% if device.last_seen and (datetime.utcnow() - device.last_seen).total_seconds() < 3600 %}
+                                            <span class="badge bg-success">
+                                                <i data-feather="check-circle" style="width: 12px; height: 12px;"></i>
+                                                Online
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-warning">
+                                                <i data-feather="clock" style="width: 12px; height: 12px;"></i>
+                                                Idle
+                                            </span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="badge bg-danger">
+                                            <i data-feather="x-circle" style="width: 12px; height: 12px;"></i>
+                                            Inactive
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if device.last_seen %}
+                                        <span title="{{ device.last_seen.strftime('%Y-%m-%d %H:%M:%S UTC') }}">
+                                            {{ device.last_seen.strftime('%Y-%m-%d %H:%M:%S') }}
+                                        </span>
+                                    {% else %}
+                                        <span class="text-muted">Never</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="text-muted" title="{{ device.created_at.strftime('%Y-%m-%d %H:%M:%S UTC') }}">
+                                        {{ device.created_at.strftime('%Y-%m-%d %H:%M:%S') }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <button type="button" class="btn btn-outline-primary" 
+                                                onclick="viewDeviceDetails('{{ device.unit_id }}')">
+                                            <i data-feather="eye" style="width: 12px; height: 12px;"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-outline-secondary" 
+                                                onclick="showTrackingData('{{ device.unit_id }}')">
+                                            <i data-feather="map-pin" style="width: 12px; height: 12px;"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-outline-warning" 
+                                                onclick="editDeviceName({{ device.id }}, '{{ (device.name or '') | replace('\'', '\\\'') }}')">
+                                            <i data-feather="edit-2" style="width: 12px; height: 12px;"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Edit Device Name Modal -->
+        <div class="modal fade" id="editDeviceModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Edit Device Name</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <form id="editDeviceForm" method="POST">
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label for="deviceName" class="form-label">Device Name</label>
+                                <input type="text" class="form-control" id="deviceName" name="name" required>
+                                <div class="form-text">Enter a friendly name for this device</div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="submit" class="btn btn-primary">Save Changes</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pagination -->
+        {% if devices.pages > 1 %}
+        <nav aria-label="Devices pagination" class="mt-4">
+            <ul class="pagination justify-content-center">
+                {% if devices.has_prev %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('devices', page=devices.prev_num) }}">
+                            <i data-feather="chevron-left"></i>
+                        </a>
+                    </li>
+                {% endif %}
+                
+                {% for page_num in devices.iter_pages() %}
+                    {% if page_num %}
+                        {% if page_num != devices.page %}
+                            <li class="page-item">
+                                <a class="page-link" href="{{ url_for('devices', page=page_num) }}">{{ page_num }}</a>
+                            </li>
+                        {% else %}
+                            <li class="page-item active">
+                                <span class="page-link">{{ page_num }}</span>
+                            </li>
+                        {% endif %}
+                    {% else %}
+                        <li class="page-item disabled">
+                            <span class="page-link">…</span>
+                        </li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if devices.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('devices', page=devices.next_num) }}">
+                            <i data-feather="chevron-right"></i>
+                        </a>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+
+    {% else %}
+        <!-- Empty State -->
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <i data-feather="smartphone" class="text-muted mb-3" style="width: 4rem; height: 4rem;"></i>
+                <h4 class="text-muted">No Devices Found</h4>
+                <p class="text-muted mb-4">
+                    No tracking devices have been registered yet. Devices will appear here automatically 
+                    when they start sending data to the webhook endpoint.
+                </p>
+                <div class="alert alert-info">
+                    <h6 class="alert-heading">
+                        <i data-feather="info" class="me-2"></i>
+                        Setup Instructions
+                    </h6>
+                    <p class="mb-2">Configure your Wialon retranslator to send data to:</p>
+                    <code>{{ request.host_url }}webhook/wialon</code>
+                    <hr>
+                    <p class="mb-0">
+                        Make sure to include the authentication token in your requests.
+                        See the <a href="{{ url_for('dashboard') }}" class="alert-link">Dashboard</a> for configuration details.
+                    </p>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Device Details Modal -->
+<div class="modal fade" id="deviceDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i data-feather="smartphone" class="me-2"></i>
+                    Device Details
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="deviceDetailsContent">
+                    <div class="text-center py-3">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Edit device name
+    function editDeviceName(deviceId, currentName) {
+        // Set form action URL
+        document.getElementById('editDeviceForm').action = `/device/${deviceId}/edit`;
+        
+        // Set current name in input field
+        document.getElementById('deviceName').value = currentName || '';
+        
+        // Show modal
+        const modal = new bootstrap.Modal(document.getElementById('editDeviceModal'));
+        modal.show();
+    }
+
+    function viewDeviceDetails(unitId) {
+        const modal = new bootstrap.Modal(document.getElementById('deviceDetailsModal'));
+        const content = document.getElementById('deviceDetailsContent');
+        
+        // Show loading spinner
+        content.innerHTML = `
+            <div class="text-center py-3">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
+        `;
+        
+        modal.show();
+        
+        // Mock device details - in a real app, this would be an API call
+        setTimeout(() => {
+            content.innerHTML = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Device Information</h6>
+                        <table class="table table-sm">
+                            <tr>
+                                <td><strong>Unit ID:</strong></td>
+                                <td><code>${unitId}</code></td>
+                            </tr>
+                            <tr>
+                                <td><strong>Type:</strong></td>
+                                <td>Xirgo/Sensata XG3780</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Status:</strong></td>
+                                <td><span class="badge bg-success">Active</span></td>
+                            </tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Recent Activity</h6>
+                        <p class="text-muted">Last 24 hours of tracking data would be shown here.</p>
+                        <div class="alert alert-info">
+                            <small>This is a placeholder. Real implementation would show actual device metrics and recent tracking data.</small>
+                        </div>
+                    </div>
+                </div>
+            `;
+            feather.replace();
+        }, 1000);
+    }
+
+    function showTrackingData(unitId) {
+        alert(`Tracking data viewer for device ${unitId} would open here. In a full implementation, this would show a map with recent GPS coordinates and tracking history.`);
+    }
+</script>
+{% endblock %}

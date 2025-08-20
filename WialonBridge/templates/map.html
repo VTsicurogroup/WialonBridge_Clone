@@ -1,0 +1,343 @@
+{% extends "base.html" %}
+
+{% block title %}Device Locations - Wialon Tracker{% endblock %}
+
+{% block head %}
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""/>
+<style>
+    #map {
+        height: 600px;
+        width: 100%;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .device-popup {
+        min-width: 280px;
+    }
+    .device-popup h6 {
+        margin-bottom: 8px;
+        color: var(--bs-primary);
+    }
+    .telemetry-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 4px;
+        margin-top: 8px;
+    }
+    .telemetry-item {
+        font-size: 0.85rem;
+        padding: 2px 4px;
+        background: var(--bs-light);
+        border-radius: 3px;
+        border-left: 3px solid var(--bs-info);
+    }
+    .telemetry-item.engine { border-left-color: var(--bs-warning); }
+    .telemetry-item.fuel { border-left-color: var(--bs-success); }
+    .telemetry-item.power { border-left-color: var(--bs-danger); }
+    .telemetry-item.gps { border-left-color: var(--bs-info); }
+    
+    .device-name-label {
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: 600;
+        text-align: center;
+        white-space: nowrap;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        border: 1px solid rgba(255,255,255,0.2);
+    }
+    
+    .device-label {
+        pointer-events: none;
+    }
+    
+    .map-stats {
+        background: var(--bs-body-bg);
+        border: 1px solid var(--bs-border-color);
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .legend {
+        background: var(--bs-body-bg);
+        border: 1px solid var(--bs-border-color);
+        border-radius: 8px;
+        padding: 1rem;
+        margin-top: 1rem;
+    }
+    
+    .legend-item {
+        display: inline-flex;
+        align-items: center;
+        margin-right: 1rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .legend-color {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        margin-right: 0.5rem;
+        border: 2px solid var(--bs-border-color);
+    }
+    
+    .active-device { background-color: #28a745; }
+    .inactive-device { background-color: #6c757d; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2><i data-feather="map-pin" class="me-2"></i>Device Locations</h2>
+                <button id="refreshMap" class="btn btn-outline-primary">
+                    <i data-feather="refresh-cw" class="me-2"></i>Refresh Locations
+                </button>
+            </div>
+            
+            <!-- Map Statistics -->
+            <div class="map-stats">
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <h4 class="text-primary" id="totalDevices">{{ map_data|length }}</h4>
+                            <small class="text-muted">Total Devices</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <h4 class="text-success" id="activeDevices">
+                                {{ map_data|selectattr('is_active')|list|length }}
+                            </h4>
+                            <small class="text-muted">Active Devices</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <h4 class="text-info" id="movingDevices">0</h4>
+                            <small class="text-muted">Moving (>5 km/h)</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <h4 class="text-warning" id="lastUpdate">
+                                {% if map_data %}
+                                    <span id="updateTime">Just now</span>
+                                {% else %}
+                                    No data
+                                {% endif %}
+                            </h4>
+                            <small class="text-muted">Last Update</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Interactive Map -->
+            <div class="card">
+                <div class="card-body">
+                    <div id="map"></div>
+                </div>
+            </div>
+            
+            <!-- Legend -->
+            <div class="legend">
+                <h6><i data-feather="info" class="me-2"></i>Legend</h6>
+                <div class="legend-item">
+                    <div class="legend-color active-device"></div>
+                    <span>Active Device</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color inactive-device"></div>
+                    <span>Inactive Device</span>
+                </div>
+                <div class="ms-3">
+                    <small class="text-muted">
+                        Click on any device marker to view detailed telemetry information including GPS data, engine status, fuel levels, and power readings. 
+                        <strong>Zoom in (level 10+) to see device names displayed above markers.</strong>
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- Leaflet JavaScript -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+        crossorigin=""></script>
+
+<script>
+// Map data from Flask
+var mapData = {{ map_data|tojson }};
+
+// Initialize map
+var map = L.map('map');
+
+// Set default view (will be updated based on device locations)
+if (mapData.length > 0) {
+    // Calculate bounds to fit all devices
+    var group = new L.featureGroup();
+    
+    mapData.forEach(function(device) {
+        var marker = L.marker([device.latitude, device.longitude]);
+        group.addLayer(marker);
+    });
+    
+    if (group.getLayers().length > 0) {
+        map.fitBounds(group.getBounds().pad(0.1));
+    } else {
+        map.setView([40.7589, -73.9851], 10); // Default to NYC
+    }
+} else {
+    map.setView([40.7589, -73.9851], 10); // Default to NYC
+}
+
+// Add tile layer
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    maxZoom: 18
+}).addTo(map);
+
+// Custom icons for different device states
+var activeIcon = L.divIcon({
+    className: 'custom-div-icon',
+    html: '<div style="background-color: #28a745; width: 20px; height: 20px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>',
+    iconSize: [20, 20],
+    iconAnchor: [10, 10]
+});
+
+var inactiveIcon = L.divIcon({
+    className: 'custom-div-icon',
+    html: '<div style="background-color: #6c757d; width: 20px; height: 20px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>',
+    iconSize: [20, 20],
+    iconAnchor: [10, 10]
+});
+
+// Add device markers with labels
+var movingCount = 0;
+var deviceMarkers = [];
+mapData.forEach(function(device) {
+    var isMoving = device.speed > 5;
+    if (isMoving) movingCount++;
+    
+    var icon = device.is_active ? activeIcon : inactiveIcon;
+    var marker = L.marker([device.latitude, device.longitude], {icon: icon}).addTo(map);
+    
+    // Create a label for the device name that shows when zoomed in
+    var deviceName = device.device_name || device.unit_id || 'Unknown Device';
+    var label = L.marker([device.latitude, device.longitude], {
+        icon: L.divIcon({
+            className: 'device-label',
+            html: '<div class="device-name-label">' + deviceName + '</div>',
+            iconSize: [140, 25],
+            iconAnchor: [70, -20]
+        }),
+        zIndexOffset: 1000
+    });
+    
+    // Store both marker and label
+    deviceMarkers.push({
+        marker: marker,
+        label: label,
+        device: device
+    });
+    
+    // Create popup content
+    var popupContent = '<div class="device-popup">';
+    popupContent += '<h6><i data-feather="navigation"></i> ' + device.device_name + '</h6>';
+    popupContent += '<div><strong>Unit ID:</strong> ' + device.unit_id + '</div>';
+    popupContent += '<div><strong>Status:</strong> <span class="badge bg-' + (device.is_active ? 'success' : 'secondary') + '">' + (device.is_active ? 'Active' : 'Inactive') + '</span></div>';
+    popupContent += '<div><strong>Speed:</strong> ' + device.speed.toFixed(1) + ' km/h</div>';
+    popupContent += '<div><strong>Heading:</strong> ' + device.heading.toFixed(0) + '°</div>';
+    popupContent += '<div><strong>Last Update:</strong> ' + new Date(device.timestamp).toLocaleString() + '</div>';
+    
+    // Add telemetry data if available
+    if (Object.keys(device.telemetry).length > 0) {
+        popupContent += '<div class="telemetry-grid">';
+        for (var sensorName in device.telemetry) {
+            var sensor = device.telemetry[sensorName];
+            var displayName = sensorName.replace('SENSOR_', '').replace(/_/g, ' ');
+            popupContent += '<div class="telemetry-item ' + sensor.category + '">';
+            popupContent += '<strong>' + displayName + ':</strong><br>';
+            popupContent += sensor.value + ' ' + sensor.unit;
+            popupContent += '</div>';
+        }
+        popupContent += '</div>';
+    }
+    
+    popupContent += '</div>';
+    
+    marker.bindPopup(popupContent, {
+        maxWidth: 350,
+        className: 'custom-popup'
+    });
+    
+    // Add click event to zoom to device
+    marker.on('click', function() {
+        map.setView([device.latitude, device.longitude], 15);
+    });
+});
+
+// Function to show/hide device labels based on zoom level
+function updateDeviceLabels() {
+    var currentZoom = map.getZoom();
+    var showLabels = currentZoom >= 10; // Show labels when zoomed in to level 10 or higher (lowered for easier testing)
+    
+    console.log('Zoom level:', currentZoom, 'Show labels:', showLabels, 'Device markers:', deviceMarkers.length);
+    
+    deviceMarkers.forEach(function(item) {
+        if (showLabels && !map.hasLayer(item.label)) {
+            console.log('Adding label for:', item.device.device_name);
+            map.addLayer(item.label);
+        } else if (!showLabels && map.hasLayer(item.label)) {
+            console.log('Removing label for:', item.device.device_name);
+            map.removeLayer(item.label);
+        }
+    });
+}
+
+// Listen for zoom events to show/hide labels
+map.on('zoomend', updateDeviceLabels);
+
+// Initial label update
+updateDeviceLabels();
+
+// Update moving devices count
+document.getElementById('movingDevices').textContent = movingCount;
+
+// Refresh functionality
+document.getElementById('refreshMap').addEventListener('click', function() {
+    window.location.reload();
+});
+
+// Update time display
+function updateTimeDisplay() {
+    var now = new Date();
+    document.getElementById('updateTime').textContent = now.toLocaleTimeString();
+}
+
+// Update time every minute
+setInterval(updateTimeDisplay, 60000);
+
+// Auto-refresh map every 5 minutes
+setInterval(function() {
+    window.location.reload();
+}, 300000); // 5 minutes
+
+// Initialize Feather Icons after content loads
+document.addEventListener('DOMContentLoaded', function() {
+    feather.replace();
+});
+</script>
+{% endblock %}

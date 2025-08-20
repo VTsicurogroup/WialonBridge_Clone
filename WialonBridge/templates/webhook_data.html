@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+
+{% block title %}Webhook Data - Wialon Webhook Receiver{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3">
+            <i data-feather="code" class="me-2"></i>
+            Raw Webhook Data
+        </h1>
+        <a href="{{ url_for('live_messages') }}" class="btn btn-secondary">
+            <i data-feather="arrow-left" class="me-1"></i>
+            Back to Messages
+        </a>
+    </div>
+
+    <!-- Request Details -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">Request Details</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>Timestamp:</strong> {{ log_entry.timestamp.strftime('%Y-%m-%d %H:%M:%S UTC') }}</p>
+                    <p><strong>Endpoint:</strong> <code>{{ log_entry.endpoint }}</code></p>
+                    <p><strong>Method:</strong> <span class="badge bg-primary">{{ log_entry.method }}</span></p>
+                    <p><strong>Status Code:</strong> 
+                        {% if log_entry.status_code == 200 %}
+                            <span class="badge bg-success">{{ log_entry.status_code }}</span>
+                        {% elif log_entry.status_code >= 400 %}
+                            <span class="badge bg-danger">{{ log_entry.status_code }}</span>
+                        {% else %}
+                            <span class="badge bg-secondary">{{ log_entry.status_code }}</span>
+                        {% endif %}
+                    </p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>Content Type:</strong> <code>{{ log_entry.content_type or 'Unknown' }}</code></p>
+                    <p><strong>Content Length:</strong> {{ log_entry.content_length or 0 }} bytes</p>
+                    <p><strong>Remote Address:</strong> <code>{{ log_entry.remote_addr }}</code></p>
+                    <p><strong>User Agent:</strong> <code>{{ log_entry.user_agent or 'Unknown' }}</code></p>
+                    <p><strong>Processing Time:</strong> {{ log_entry.processing_time_ms or 0 }}ms</p>
+                </div>
+            </div>
+            
+            {% if log_entry.error_message %}
+            <div class="alert alert-danger mt-3">
+                <strong>Error:</strong> {{ log_entry.error_message }}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Raw Data -->
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Raw Request Data</h5>
+            <button class="btn btn-sm btn-outline-secondary" onclick="copyToClipboard()">
+                <i data-feather="copy" class="me-1"></i>
+                Copy
+            </button>
+        </div>
+        <div class="card-body">
+            {% if log_entry.request_data_sample %}
+                <pre id="rawData" class="bg-light p-3" style="max-height: 600px; overflow-y: auto; white-space: pre-wrap; word-wrap: break-word;"><code>{{ log_entry.request_data_sample }}</code></pre>
+            {% else %}
+                <div class="text-center py-4 text-muted">
+                    <i data-feather="file-x" class="mb-2" style="width: 3rem; height: 3rem;"></i>
+                    <p>No raw data captured for this request</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- SOAP XML Analysis (if applicable) -->
+    {% if log_entry.content_type and 'soap+xml' in log_entry.content_type %}
+    <div class="card mt-4">
+        <div class="card-header">
+            <h5 class="mb-0">SOAP XML Analysis</h5>
+        </div>
+        <div class="card-body">
+            <div class="alert alert-info">
+                <i data-feather="info" class="me-2"></i>
+                This is a SOAP XML request from Wialon Retranslator containing GPS tracking data.
+            </div>
+            
+            <h6>Expected SOAP Structure:</h6>
+            <ul class="small">
+                <li><code>&lt;soapenv:Envelope&gt;</code> - SOAP envelope</li>
+                <li><code>&lt;wsse:Security&gt;</code> - WS-Security authentication</li>
+                <li><code>&lt;web:storeTelemetryList&gt;</code> - Wialon telemetry data</li>
+                <li><code>&lt;telemetry&gt;</code> - GPS coordinates and device data</li>
+            </ul>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function copyToClipboard() {
+    const rawData = document.getElementById('rawData');
+    if (rawData) {
+        navigator.clipboard.writeText(rawData.textContent).then(() => {
+            // Show success feedback
+            const btn = event.target;
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i data-feather="check" class="me-1"></i>Copied!';
+            setTimeout(() => {
+                btn.innerHTML = originalText;
+                feather.replace();
+            }, 2000);
+        });
+    }
+}
+</script>
+{% endblock %}

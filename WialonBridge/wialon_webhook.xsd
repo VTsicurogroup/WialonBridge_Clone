@@ -1,0 +1,272 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:wsse="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd"
+           xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+           xmlns:web="http://webservice.retranslator.wialon"
+           targetNamespace="http://webservice.retranslator.wialon"
+           elementFormDefault="qualified">
+
+    <!-- SOAP Envelope Structure -->
+    <xs:element name="Envelope">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="Header" type="HeaderType" minOccurs="0"/>
+                <xs:element name="Body" type="BodyType"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <!-- SOAP Header with WS-Security -->
+    <xs:complexType name="HeaderType">
+        <xs:sequence>
+            <xs:element name="Security" type="SecurityType" minOccurs="0"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="SecurityType">
+        <xs:sequence>
+            <xs:element name="UsernameToken" type="UsernameTokenType"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="UsernameTokenType">
+        <xs:sequence>
+            <xs:element name="Username" type="xs:string"/>
+            <xs:element name="Password" type="xs:string" minOccurs="0"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <!-- SOAP Body -->
+    <xs:complexType name="BodyType">
+        <xs:sequence>
+            <xs:element name="submitData" type="SubmitDataType"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <!-- Main Data Submission Structure -->
+    <xs:complexType name="SubmitDataType">
+        <xs:sequence>
+            <!-- Device Information -->
+            <xs:element name="unitId" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>Unique identifier for the tracking device (IMEI, device ID, etc.)</xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            
+            <!-- GPS Location Data -->
+            <xs:element name="latitude" type="xs:decimal" minOccurs="0">
+                <xs:annotation>
+                    <xs:documentation>GPS latitude in decimal degrees (-90.0 to 90.0)</xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element name="longitude" type="xs:decimal" minOccurs="0">
+                <xs:annotation>
+                    <xs:documentation>GPS longitude in decimal degrees (-180.0 to 180.0)</xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element name="altitude" type="xs:decimal" minOccurs="0">
+                <xs:annotation>
+                    <xs:documentation>Altitude above sea level in meters</xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            
+            <!-- Movement Data -->
+            <xs:element name="speed" type="xs:decimal" minOccurs="0">
+                <xs:annotation>
+                    <xs:documentation>Speed in km/h</xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element name="heading" type="xs:decimal" minOccurs="0">
+                <xs:annotation>
+                    <xs:documentation>Heading/direction in degrees (0-360)</xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            
+            <!-- Timestamp -->
+            <xs:element name="timestamp" type="xs:dateTime" minOccurs="0">
+                <xs:annotation>
+                    <xs:documentation>UTC timestamp of the data point (ISO 8601 format)</xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            
+            <!-- Enhanced Telemetry Details (Multiple sensors supported) -->
+            <xs:element name="telemetryDetails" type="TelemetryDetailType" minOccurs="0" maxOccurs="unbounded">
+                <xs:annotation>
+                    <xs:documentation>Xirgo/Sensata XG3780 sensor telemetry data with comprehensive sensor mapping</xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            
+            <!-- Legacy Vehicle Data (Optional) -->
+            <xs:element name="odometer" type="xs:decimal" minOccurs="0">
+                <xs:annotation>
+                    <xs:documentation>Total distance traveled in kilometers</xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element name="fuelLevel" type="xs:decimal" minOccurs="0">
+                <xs:annotation>
+                    <xs:documentation>Fuel level percentage (0-100)</xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element name="engineHours" type="xs:decimal" minOccurs="0">
+                <xs:annotation>
+                    <xs:documentation>Total engine runtime in hours</xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            
+            <!-- Status Flags -->
+            <xs:element name="ignitionStatus" type="xs:boolean" minOccurs="0">
+                <xs:annotation>
+                    <xs:documentation>Vehicle ignition status (true = on, false = off)</xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element name="gpsValid" type="xs:boolean" minOccurs="0">
+                <xs:annotation>
+                    <xs:documentation>GPS signal validity (true = valid, false = invalid)</xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element name="panicButton" type="xs:boolean" minOccurs="0">
+                <xs:annotation>
+                    <xs:documentation>Emergency/panic button status</xs:documentation>
+                </xs:annotation>
+            </xs:element>
+        </xs:sequence>
+    </xs:complexType>
+
+    <!-- Telemetry Detail Structure for Xirgo/Sensata XG3780 -->
+    <xs:complexType name="TelemetryDetailType">
+        <xs:sequence>
+            <xs:element name="sensorCode" type="SensorCodeType">
+                <xs:annotation>
+                    <xs:documentation>Xirgo sensor identifier (sensor0-sensor172 for boolean, sensor8192+ for numeric)</xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element name="value" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>Raw sensor value (will be converted based on sensor type and calibration)</xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element name="timestamp" type="xs:dateTime" minOccurs="0">
+                <xs:annotation>
+                    <xs:documentation>Optional sensor-specific timestamp</xs:documentation>
+                </xs:annotation>
+            </xs:element>
+        </xs:sequence>
+    </xs:complexType>
+
+    <!-- Sensor Code Enumeration (Key Xirgo/Sensata XG3780 sensors) -->
+    <xs:simpleType name="SensorCodeType">
+        <xs:restriction base="xs:string">
+            <!-- Boolean Sensors (0-172) -->
+            <xs:enumeration value="sensor0">
+                <xs:annotation><xs:documentation>Ignition Status</xs:documentation></xs:annotation>
+            </xs:enumeration>
+            <xs:enumeration value="sensor1">
+                <xs:annotation><xs:documentation>GPS Valid/Modem On</xs:documentation></xs:annotation>
+            </xs:enumeration>
+            <xs:enumeration value="sensor2">
+                <xs:annotation><xs:documentation>Speed Over Limit</xs:documentation></xs:annotation>
+            </xs:enumeration>
+            <xs:enumeration value="sensor3">
+                <xs:annotation><xs:documentation>Input 1 Status</xs:documentation></xs:annotation>
+            </xs:enumeration>
+            <xs:enumeration value="sensor4">
+                <xs:annotation><xs:documentation>Input 2 Status</xs:documentation></xs:annotation>
+            </xs:enumeration>
+            <xs:enumeration value="sensor5">
+                <xs:annotation><xs:documentation>Input 3 Status</xs:documentation></xs:annotation>
+            </xs:enumeration>
+            <xs:enumeration value="sensor6">
+                <xs:annotation><xs:documentation>Input 4 Status</xs:documentation></xs:annotation>
+            </xs:enumeration>
+            <xs:enumeration value="sensor7">
+                <xs:annotation><xs:documentation>Output 1 Status</xs:documentation></xs:annotation>
+            </xs:enumeration>
+            <xs:enumeration value="sensor8">
+                <xs:annotation><xs:documentation>Panic Button/GSM Jamming</xs:documentation></xs:annotation>
+            </xs:enumeration>
+            <xs:enumeration value="sensor9">
+                <xs:annotation><xs:documentation>GPS Jamming</xs:documentation></xs:annotation>
+            </xs:enumeration>
+            <xs:enumeration value="sensor10">
+                <xs:annotation><xs:documentation>Low Power</xs:documentation></xs:annotation>
+            </xs:enumeration>
+            
+            <!-- Numeric Sensors (8192+) - GPS and Movement -->
+            <xs:enumeration value="sensor8192">
+                <xs:annotation><xs:documentation>GNSS Speed (km/h)</xs:documentation></xs:annotation>
+            </xs:enumeration>
+            <xs:enumeration value="sensor8193">
+                <xs:annotation><xs:documentation>GNSS Course/Heading (degrees)</xs:documentation></xs:annotation>
+            </xs:enumeration>
+            <xs:enumeration value="sensor8194">
+                <xs:annotation><xs:documentation>GNSS Altitude (meters)</xs:documentation></xs:annotation>
+            </xs:enumeration>
+            <xs:enumeration value="sensor8195">
+                <xs:annotation><xs:documentation>GNSS HDOP</xs:documentation></xs:annotation>
+            </xs:enumeration>
+            <xs:enumeration value="sensor8196">
+                <xs:annotation><xs:documentation>GNSS Satellites</xs:documentation></xs:annotation>
+            </xs:enumeration>
+            
+            <!-- Engine and Vehicle Sensors -->
+            <xs:enumeration value="sensor8200">
+                <xs:annotation><xs:documentation>Engine Coolant Temperature (°C)</xs:documentation></xs:annotation>
+            </xs:enumeration>
+            <xs:enumeration value="sensor8201">
+                <xs:annotation><xs:documentation>Engine Oil Pressure (kPa)</xs:documentation></xs:annotation>
+            </xs:enumeration>
+            <xs:enumeration value="sensor8202">
+                <xs:annotation><xs:documentation>Engine Oil Temperature (°C)</xs:documentation></xs:annotation>
+            </xs:enumeration>
+            <xs:enumeration value="sensor8203">
+                <xs:annotation><xs:documentation>Transmission Oil Temperature (°C)</xs:documentation></xs:annotation>
+            </xs:enumeration>
+            <xs:enumeration value="sensor8208">
+                <xs:annotation><xs:documentation>Engine RPM</xs:documentation></xs:annotation>
+            </xs:enumeration>
+            <xs:enumeration value="sensor8209">
+                <xs:annotation><xs:documentation>Vehicle Speed (km/h)</xs:documentation></xs:annotation>
+            </xs:enumeration>
+            <xs:enumeration value="sensor8210">
+                <xs:annotation><xs:documentation>Accelerator Pedal Position (%)</xs:documentation></xs:annotation>
+            </xs:enumeration>
+            
+            <!-- Fuel and Power Systems -->
+            <xs:enumeration value="sensor8224">
+                <xs:annotation><xs:documentation>Fuel Level (%)</xs:documentation></xs:annotation>
+            </xs:enumeration>
+            <xs:enumeration value="sensor8225">
+                <xs:annotation><xs:documentation>Fuel Rate (L/h)</xs:documentation></xs:annotation>
+            </xs:enumeration>
+            <xs:enumeration value="sensor8240">
+                <xs:annotation><xs:documentation>Battery Voltage (V)</xs:documentation></xs:annotation>
+            </xs:enumeration>
+            <xs:enumeration value="sensor8241">
+                <xs:annotation><xs:documentation>External Power Voltage (V)</xs:documentation></xs:annotation>
+            </xs:enumeration>
+            
+            <!-- Environmental Sensors -->
+            <xs:enumeration value="sensor8256">
+                <xs:annotation><xs:documentation>Ambient Temperature (°C)</xs:documentation></xs:annotation>
+            </xs:enumeration>
+            <xs:enumeration value="sensor8257">
+                <xs:annotation><xs:documentation>Cabin Temperature (°C)</xs:documentation></xs:annotation>
+            </xs:enumeration>
+            
+            <!-- CAN Bus and Advanced Diagnostics -->
+            <xs:enumeration value="sensor8272">
+                <xs:annotation><xs:documentation>Total Engine Hours</xs:documentation></xs:annotation>
+            </xs:enumeration>
+            <xs:enumeration value="sensor8273">
+                <xs:annotation><xs:documentation>Total Vehicle Distance (km)</xs:documentation></xs:annotation>
+            </xs:enumeration>
+            <xs:enumeration value="sensor8274">
+                <xs:annotation><xs:documentation>High Resolution Total Distance (m)</xs:documentation></xs:annotation>
+            </xs:enumeration>
+            
+            <!-- Allow for additional sensors with pattern -->
+            <xs:pattern value="sensor[0-9]+"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+</xs:schema>

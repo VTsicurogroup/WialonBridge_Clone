@@ -1,0 +1,340 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Wialon Webhook Receiver{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3">
+            <i data-feather="activity" class="me-2"></i>
+            Dashboard
+        </h1>
+        <div class="text-muted">
+            Real-time monitoring of Wialon retranslator data
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="card bg-primary">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title text-white-50">Total Devices</h6>
+                            <h2 class="text-white mb-0">{{ total_devices }}</h2>
+                        </div>
+                        <div class="align-self-center">
+                            <i data-feather="smartphone" class="text-white-50" style="width: 2rem; height: 2rem;"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 mb-3">
+            <div class="card bg-success">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title text-white-50">Active Devices</h6>
+                            <h2 class="text-white mb-0">{{ active_devices }}</h2>
+                        </div>
+                        <div class="align-self-center">
+                            <i data-feather="check-circle" class="text-white-50" style="width: 2rem; height: 2rem;"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 mb-3">
+            <div class="card bg-info">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title text-white-50">Data Points (24h)</h6>
+                            <h2 class="text-white mb-0">{{ recent_data_count }}</h2>
+                        </div>
+                        <div class="align-self-center">
+                            <i data-feather="map-pin" class="text-white-50" style="width: 2rem; height: 2rem;"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 mb-3">
+            <div class="card bg-warning">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title text-dark-50">Webhook Calls</h6>
+                            <h2 class="text-dark mb-0" id="webhook-count">{{ recent_webhooks|length }}</h2>
+                        </div>
+                        <div class="align-self-center">
+                            <i data-feather="globe" class="text-dark-50" style="width: 2rem; height: 2rem;"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="row mb-4">
+        <div class="col-md-8 mb-3">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i data-feather="bar-chart-2" class="me-2"></i>
+                        Data Activity (Last 24 Hours)
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="activityChart" height="100"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4 mb-3">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i data-feather="pie-chart" class="me-2"></i>
+                        Device Activity (7 Days)
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="deviceChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="row">
+        <div class="col-md-8 mb-3">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i data-feather="clock" class="me-2"></i>
+                        Recent Webhook Requests
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if recent_webhooks %}
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Time</th>
+                                        <th>Endpoint</th>
+                                        <th>Status</th>
+                                        <th>Processing Time</th>
+                                        <th>Remote IP</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for log in recent_webhooks %}
+                                    <tr>
+                                        <td>
+                                            <small>{{ log.timestamp.strftime('%H:%M:%S') }}</small>
+                                        </td>
+                                        <td>
+                                            <code class="small">{{ log.endpoint }}</code>
+                                        </td>
+                                        <td>
+                                            {% if log.status_code == 200 %}
+                                                <span class="badge bg-success">{{ log.status_code }}</span>
+                                            {% elif log.status_code >= 400 %}
+                                                <span class="badge bg-danger">{{ log.status_code }}</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">{{ log.status_code }}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <small>{{ log.processing_time_ms }}ms</small>
+                                        </td>
+                                        <td>
+                                            <small class="text-muted">{{ log.remote_addr }}</small>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4 text-muted">
+                            <i data-feather="inbox" class="mb-2" style="width: 3rem; height: 3rem;"></i>
+                            <p>No recent webhook requests</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4 mb-3">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i data-feather="settings" class="me-2"></i>
+                        Configuration
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label small">Webhook Endpoint URL:</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control form-control-sm" 
+                                   value="{{ request.host_url }}webhook/wialon" readonly>
+                            <button class="btn btn-outline-secondary btn-sm" type="button" onclick="copyToClipboard(this)">
+                                <i data-feather="copy"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label small">Authentication:</label>
+                        <p class="small text-muted mb-1">
+                            Use Bearer token in Authorization header or api_key parameter
+                        </p>
+                        <div class="input-group">
+                            <input type="password" class="form-control form-control-sm" 
+                                   value="{{ config.WEBHOOK_AUTH_TOKEN }}" readonly id="auth-token">
+                            <button class="btn btn-outline-secondary btn-sm" type="button" onclick="toggleToken()">
+                                <i data-feather="eye" id="token-icon"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label small">Rate Limit:</label>
+                        <p class="small text-muted mb-0">
+                            {{ config.RATE_LIMIT_PER_MINUTE }} requests per minute per IP
+                        </p>
+                    </div>
+                    
+                    <div class="mb-0">
+                        <label class="form-label small">Health Check:</label>
+                        <p class="small text-muted mb-0">
+                            <code>GET {{ request.host_url }}health</code>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Activity Chart
+    const activityCtx = document.getElementById('activityChart').getContext('2d');
+    const activityChart = new Chart(activityCtx, {
+        type: 'line',
+        data: {
+            labels: Array.from({length: 24}, (_, i) => i + 'h'),
+            datasets: [{
+                label: 'Data Points',
+                data: Array.from({length: 24}, () => Math.floor(Math.random() * 100)),
+                borderColor: 'var(--bs-primary)',
+                backgroundColor: 'var(--bs-primary)',
+                tension: 0.4,
+                fill: false
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+
+    // Device Activity Chart
+    const deviceCtx = document.getElementById('deviceChart').getContext('2d');
+    const deviceChart = new Chart(deviceCtx, {
+        type: 'doughnut',
+        data: {
+            labels: [{% for device, count in device_activity %}'{{ device }}'{{ ',' if not loop.last }}{% endfor %}],
+            datasets: [{
+                data: [{% for device, count in device_activity %}{{ count }}{{ ',' if not loop.last }}{% endfor %}],
+                backgroundColor: [
+                    'var(--bs-primary)',
+                    'var(--bs-success)',
+                    'var(--bs-info)',
+                    'var(--bs-warning)',
+                    'var(--bs-danger)',
+                    'var(--bs-secondary)'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+
+    // Utility functions
+    function copyToClipboard(button) {
+        const input = button.parentElement.querySelector('input');
+        input.select();
+        document.execCommand('copy');
+        
+        const icon = button.querySelector('i');
+        icon.setAttribute('data-feather', 'check');
+        feather.replace();
+        
+        setTimeout(() => {
+            icon.setAttribute('data-feather', 'copy');
+            feather.replace();
+        }, 2000);
+    }
+
+    function toggleToken() {
+        const input = document.getElementById('auth-token');
+        const icon = document.getElementById('token-icon');
+        
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.setAttribute('data-feather', 'eye-off');
+        } else {
+            input.type = 'password';
+            icon.setAttribute('data-feather', 'eye');
+        }
+        feather.replace();
+    }
+
+    // Auto-refresh data every 30 seconds
+    setInterval(() => {
+        fetch('/api/dashboard_stats')
+            .then(response => response.json())
+            .then(data => {
+                if (data.hourly_data) {
+                    const newData = Array.from({length: 24}, () => 0);
+                    data.hourly_data.forEach(item => {
+                        newData[parseInt(item.hour)] = item.count;
+                    });
+                    activityChart.data.datasets[0].data = newData;
+                    activityChart.update();
+                }
+            })
+            .catch(error => console.log('Error refreshing stats:', error));
+    }, 30000);
+</script>
+{% endblock %}

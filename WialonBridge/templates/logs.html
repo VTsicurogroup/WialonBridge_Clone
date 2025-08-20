@@ -1,0 +1,377 @@
+{% extends "base.html" %}
+
+{% block title %}Webhook Logs - Wialon Webhook Receiver{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3">
+            <i data-feather="file-text" class="me-2"></i>
+            Webhook Logs
+        </h1>
+        <div class="text-muted">
+            Real-time monitoring of incoming requests
+        </div>
+    </div>
+
+    {% if logs.items %}
+        <div class="card">
+            <div class="card-header">
+                <div class="row align-items-center">
+                    <div class="col">
+                        <h6 class="mb-0">Request History</h6>
+                    </div>
+                    <div class="col-auto">
+                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="refreshLogs()">
+                            <i data-feather="refresh-cw" class="me-1"></i>
+                            Refresh
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover table-sm mb-0">
+                        <thead>
+                            <tr>
+                                <th>Timestamp</th>
+                                <th>Endpoint</th>
+                                <th>Method</th>
+                                <th>Status</th>
+                                <th>Time</th>
+                                <th>Size</th>
+                                <th>Remote IP</th>
+                                <th>Details</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in logs.items %}
+                            {% set log = item.log %}
+                            <tr>
+                                <td>
+                                    <span class="text-nowrap" title="{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S UTC') }}">
+                                        {{ log.timestamp.strftime('%m-%d %H:%M:%S') }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <code class="small">{{ log.endpoint }}</code>
+                                </td>
+                                <td>
+                                    <span class="badge bg-secondary">{{ log.method }}</span>
+                                </td>
+                                <td>
+                                    {% if log.status_code == 200 %}
+                                        <span class="badge bg-success">{{ log.status_code }}</span>
+                                    {% elif log.status_code == 401 %}
+                                        <span class="badge bg-warning">{{ log.status_code }}</span>
+                                    {% elif log.status_code == 429 %}
+                                        <span class="badge bg-danger">{{ log.status_code }}</span>
+                                    {% elif log.status_code >= 400 %}
+                                        <span class="badge bg-danger">{{ log.status_code }}</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">{{ log.status_code }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="text-muted small">
+                                        {% if log.processing_time_ms %}
+                                            {{ log.processing_time_ms }}ms
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="text-muted small">
+                                        {% if log.content_length %}
+                                            {% if log.content_length < 1024 %}
+                                                {{ log.content_length }}B
+                                            {% elif log.content_length < 1048576 %}
+                                                {{ "%.1f"|format(log.content_length / 1024) }}KB
+                                            {% else %}
+                                                {{ "%.1f"|format(log.content_length / 1048576) }}MB
+                                            {% endif %}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="text-muted small">{{ log.remote_addr or '-' }}</span>
+                                </td>
+                                <td>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" 
+                                            onclick="showLogDetails({{ log.id }})">
+                                        <i data-feather="eye" style="width: 12px; height: 12px;"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            
+                            <!-- Parsed Data Row (if available) -->
+                            {% if item.tracking_data and log.status_code == 200 %}
+                            <tr class="table-light">
+                                <td colspan="8" class="py-2">
+                                    <div class="small">
+                                        <strong class="text-success">
+                                            <i data-feather="check-circle" style="width: 14px; height: 14px;" class="me-1"></i>
+                                            Parsed Data ({{ item.tracking_data|length }} point{{ 's' if item.tracking_data|length != 1 else '' }}):
+                                        </strong>
+                                        {% for data in item.tracking_data %}
+                                            <div class="ms-3 mt-1">
+                                                <span class="badge bg-primary me-2">Device {{ data.device.unit_id if data.device else data.device_id }}</span>
+                                                {% if data.latitude and data.longitude %}
+                                                    <span class="text-primary me-2">
+                                                        <i data-feather="map-pin" style="width: 12px; height: 12px;"></i>
+                                                        {{ "%.6f"|format(data.latitude) }}, {{ "%.6f"|format(data.longitude) }}
+                                                    </span>
+                                                {% endif %}
+                                                {% if data.speed is not none %}
+                                                    <span class="text-info me-2">
+                                                        <i data-feather="navigation" style="width: 12px; height: 12px;"></i>
+                                                        {{ data.speed }} km/h
+                                                    </span>
+                                                {% endif %}
+                                                {% if data.heading is not none %}
+                                                    <span class="text-warning me-2">
+                                                        <i data-feather="compass" style="width: 12px; height: 12px;"></i>
+                                                        {{ data.heading }}°
+                                                    </span>
+                                                {% endif %}
+                                                {% if data.altitude is not none %}
+                                                    <span class="text-secondary me-2">
+                                                        <i data-feather="trending-up" style="width: 12px; height: 12px;"></i>
+                                                        {{ data.altitude }}m
+                                                    </span>
+                                                {% endif %}
+                                                <span class="text-muted">
+                                                    <i data-feather="clock" style="width: 12px; height: 12px;"></i>
+                                                    {{ data.timestamp.strftime('%H:%M:%S') }}
+                                                </span>
+                                                
+                                                <!-- Enhanced Telemetry Data -->
+                                                {% if data.parsed_telemetry %}
+                                                    <div class="mt-2">
+                                                        <small class="text-muted d-block mb-1">
+                                                            <i data-feather="activity" style="width: 12px; height: 12px;"></i>
+                                                            Telemetry Sensors ({{ data.parsed_telemetry.keys()|length }} sensors):
+                                                        </small>
+                                                        {% for sensor_name, sensor_data in data.parsed_telemetry.items() %}
+                                                            <span class="badge bg-secondary me-1" 
+                                                                  title="{{ sensor_name }} (ID: {{ sensor_data.sensor_id }}){% if sensor_data.category %} - Category: {{ sensor_data.category }}{% endif %}">
+                                                                {{ sensor_data.value }}{% if sensor_data.unit %}{{ sensor_data.unit }}{% endif %}
+                                                                <small class="ms-1">{{ sensor_name.replace('SENSOR_', '').replace('_', ' ').title() }}</small>
+                                                            </span>
+                                                        {% endfor %}
+                                                    </div>
+                                                {% endif %}
+                                            </div>
+                                        {% endfor %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% elif log.status_code == 400 %}
+                            <tr class="table-danger">
+                                <td colspan="8" class="py-2">
+                                    <div class="small text-danger">
+                                        <i data-feather="x-circle" style="width: 14px; height: 14px;" class="me-1"></i>
+                                        <strong>Parsing Failed:</strong> 
+                                        {{ log.error_message if log.error_message else 'Unable to extract tracking data from this request' }}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pagination -->
+        {% if logs.pages > 1 %}
+        <nav aria-label="Logs pagination" class="mt-4">
+            <ul class="pagination justify-content-center">
+                {% if logs.has_prev %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('logs', page=logs.prev_num) }}">
+                            <i data-feather="chevron-left"></i>
+                        </a>
+                    </li>
+                {% endif %}
+                
+                {% for page_num in logs.iter_pages() %}
+                    {% if page_num %}
+                        {% if page_num != logs.page %}
+                            <li class="page-item">
+                                <a class="page-link" href="{{ url_for('logs', page=page_num) }}">{{ page_num }}</a>
+                            </li>
+                        {% else %}
+                            <li class="page-item active">
+                                <span class="page-link">{{ page_num }}</span>
+                            </li>
+                        {% endif %}
+                    {% else %}
+                        <li class="page-item disabled">
+                            <span class="page-link">…</span>
+                        </li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if logs.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('logs', page=logs.next_num) }}">
+                            <i data-feather="chevron-right"></i>
+                        </a>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+
+    {% else %}
+        <!-- Empty State -->
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <i data-feather="file-text" class="text-muted mb-3" style="width: 4rem; height: 4rem;"></i>
+                <h4 class="text-muted">No Logs Available</h4>
+                <p class="text-muted mb-4">
+                    No webhook requests have been logged yet. Requests will appear here as they are received.
+                </p>
+                <div class="alert alert-info">
+                    <h6 class="alert-heading">
+                        <i data-feather="info" class="me-2"></i>
+                        Webhook Endpoint
+                    </h6>
+                    <p class="mb-2">Send POST requests to:</p>
+                    <code>{{ request.host_url }}webhook/wialon</code>
+                    <hr>
+                    <p class="mb-0">
+                        Include authentication in the Authorization header or as an api_key parameter.
+                    </p>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Log Details Modal -->
+<div class="modal fade" id="logDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i data-feather="file-text" class="me-2"></i>
+                    Request Details
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="logDetailsContent">
+                    <div class="text-center py-3">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function refreshLogs() {
+        window.location.reload();
+    }
+
+    function showLogDetails(logId) {
+        const modal = new bootstrap.Modal(document.getElementById('logDetailsModal'));
+        const content = document.getElementById('logDetailsContent');
+        
+        // Show loading spinner
+        content.innerHTML = `
+            <div class="text-center py-3">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
+        `;
+        
+        modal.show();
+        
+        // Find the log entry from the current page data
+        const logRow = document.querySelector(`button[onclick="showLogDetails(${logId})"]`).closest('tr');
+        const cells = logRow.querySelectorAll('td');
+        
+        setTimeout(() => {
+            content.innerHTML = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Request Information</h6>
+                        <table class="table table-sm">
+                            <tr>
+                                <td><strong>Timestamp:</strong></td>
+                                <td>${cells[0].textContent.trim()}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Endpoint:</strong></td>
+                                <td><code>${cells[1].textContent.trim()}</code></td>
+                            </tr>
+                            <tr>
+                                <td><strong>Method:</strong></td>
+                                <td>${cells[2].textContent.trim()}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Status Code:</strong></td>
+                                <td>${cells[3].textContent.trim()}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Processing Time:</strong></td>
+                                <td>${cells[4].textContent.trim()}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Content Size:</strong></td>
+                                <td>${cells[5].textContent.trim()}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Remote IP:</strong></td>
+                                <td>${cells[6].textContent.trim()}</td>
+                            </tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Request Data Sample</h6>
+                        <div class="alert alert-secondary">
+                            <small>Request data preview would be shown here in a real implementation.</small>
+                        </div>
+                        
+                        <h6>Error Details</h6>
+                        <div class="alert alert-warning">
+                            <small>Error messages and stack traces would be displayed here if applicable.</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <h6>Headers</h6>
+                        <div class="alert alert-light">
+                            <small class="text-muted">Request headers would be shown here in a production implementation.</small>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }, 500);
+    }
+
+    // Auto-refresh logs every 30 seconds
+    setInterval(() => {
+        // Only refresh if we're on the first page
+        const currentUrl = new URL(window.location);
+        if (!currentUrl.searchParams.has('page') || currentUrl.searchParams.get('page') === '1') {
+            refreshLogs();
+        }
+    }, 30000);
+</script>
+{% endblock %}

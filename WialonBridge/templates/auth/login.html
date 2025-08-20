@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Wialon Webhook Receiver</title>
+    
+    <!-- Bootstrap CSS (Replit theme) -->
+    <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
+    
+    <!-- Feather Icons -->
+    <script src="https://unpkg.com/feather-icons"></script>
+    
+    <style>
+        body {
+            background: linear-gradient(135deg, var(--bs-primary) 0%, var(--bs-secondary) 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+        }
+        
+        .login-container {
+            max-width: 400px;
+            margin: 0 auto;
+        }
+        
+        .card {
+            border: none;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+        
+        .brand-logo {
+            width: 4rem;
+            height: 4rem;
+            background: var(--bs-primary);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="login-container">
+            <!-- Flash Messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <div class="card">
+                <div class="card-body p-5">
+                    <div class="text-center mb-4">
+                        <div class="brand-logo">
+                            <i data-feather="radio" class="text-white" style="width: 2rem; height: 2rem;"></i>
+                        </div>
+                        <h3 class="card-title">Wialon Webhook</h3>
+                        <p class="text-muted">Sign in to access the monitoring dashboard</p>
+                    </div>
+
+                    <form method="POST">
+                        <div class="mb-3">
+                            <label for="username" class="form-label">Username</label>
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i data-feather="user"></i>
+                                </span>
+                                <input type="text" class="form-control" id="username" name="username" 
+                                       placeholder="Enter username" required autofocus>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="password" class="form-label">Password</label>
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i data-feather="lock"></i>
+                                </span>
+                                <input type="password" class="form-control" id="password" name="password" 
+                                       placeholder="Enter password" required>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="remember" name="remember">
+                            <label class="form-check-label" for="remember">
+                                Remember me
+                            </label>
+                        </div>
+                        
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary">
+                                <i data-feather="log-in" class="me-2"></i>
+                                Sign In
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Default Credentials Info -->
+            <div class="card mt-3">
+                <div class="card-body">
+                    <h6 class="card-title">
+                        <i data-feather="info" class="me-2"></i>
+                        Default Credentials
+                    </h6>
+                    <p class="card-text small text-muted mb-2">
+                        For initial setup, use these default credentials:
+                    </p>
+                    <div class="row">
+                        <div class="col-6">
+                            <strong>Username:</strong> <code>admin</code>
+                        </div>
+                        <div class="col-6">
+                            <strong>Password:</strong> <code>admin123</code>
+                        </div>
+                    </div>
+                    <div class="alert alert-warning mt-2 mb-0">
+                        <small>
+                            <i data-feather="alert-triangle" class="me-1"></i>
+                            Please change the default password after first login for security.
+                        </small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="text-center mt-4">
+                <small class="text-muted">
+                    Wialon Webhook Receiver for Xirgo/Sensata XG3780 devices
+                </small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Initialize Feather Icons -->
+    <script>
+        feather.replace();
+    </script>
+</body>
+</html>
